@@ -5,5 +5,5 @@ namespace Neotoma.Contract.Models;
 
 public sealed class NeotomaGetResponse : IResponse
 {
-    public List<ValidationError> ValidationErrors { get; }
+    public List<ValidationError> ValidationErrors { get; } = [];
 }
