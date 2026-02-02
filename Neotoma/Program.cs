@@ -1,53 +1,29 @@
-var builder = WebApplication.CreateBuilder(args);
+using System.Collections.Frozen;
+using Neotoma.Contract.Helpers;
+using Neotoma.Contract.Models;
+using Neotoma.Contract.Services;
+using Nestor.Db.Helpers;
+using Zeus.Helpers;
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
-var app = builder.Build();
+InsertHelper.AddDefaultInsert(
+    nameof(FileObjectEntity),
+    id => new FileObjectEntity[] { new() { Id = id } }.CreateInsertQuery()
+);
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+var migration = new Dictionary<int, string>();
+
+foreach (var (key, value) in NeotomaMigration.Migrations)
 {
-    app.MapOpenApi();
+    migration.Add(key, value);
 }
 
-app.UseHttpsRedirection();
-
-var summaries = new[]
-{
-    "Freezing",
-    "Bracing",
-    "Chilly",
-    "Cool",
-    "Mild",
-    "Warm",
-    "Balmy",
-    "Hot",
-    "Sweltering",
-    "Scorching",
-};
-
-app.MapGet(
-        "/weatherforecast",
-        () =>
-        {
-            var forecast = Enumerable
-                .Range(1, 5)
-                .Select(index => new WeatherForecast(
-                    DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                    Random.Shared.Next(-20, 55),
-                    summaries[Random.Shared.Next(summaries.Length)]
-                ))
-                .ToArray();
-
-            return forecast;
-        }
-    )
-    .WithName("GetWeatherForecast");
-
-app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+await WebApplication
+    .CreateBuilder(args)
+    .CreateAndRunZeusApp<
+        IFileStorageService,
+        FileStorageDbService,
+        NeotomaGetRequest,
+        NeotomaPostRequest,
+        NeotomaGetResponse,
+        NeotomaPostResponse
+    >(migration.ToFrozenDictionary(), "Neotoma");
