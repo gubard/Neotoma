@@ -1,9 +1,9 @@
 using Gaia.Models;
-using Gaia.Services;
+using Nestor.Db.Models;
 
 namespace Neotoma.Contract.Models;
 
-public sealed class NeotomaGetResponse : IValidationErrors
+public sealed class NeotomaGetResponse : IResponse
 {
     public Dictionary<string, FileData[]> GetFiles { get; } = [];
     public List<ValidationError> ValidationErrors { get; } = [];

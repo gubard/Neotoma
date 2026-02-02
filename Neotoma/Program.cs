@@ -12,6 +12,11 @@ InsertHelper.AddDefaultInsert(
 
 var migration = new Dictionary<int, string>();
 
+foreach (var (key, value) in SqliteMigration.Migrations)
+{
+    migration.Add(key, value);
+}
+
 foreach (var (key, value) in NeotomaMigration.Migrations)
 {
     migration.Add(key, value);

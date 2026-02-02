@@ -2,6 +2,8 @@ namespace Neotoma.Contract.Models;
 
 public class FileData
 {
-    public string Path { get; set; } = string.Empty;
+    public Guid Id { get; set; }
+    public string Description { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
     public byte[] Data { get; set; } = [];
 }

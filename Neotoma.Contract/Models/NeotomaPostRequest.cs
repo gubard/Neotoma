@@ -4,6 +4,7 @@ namespace Neotoma.Contract.Models;
 
 public sealed class NeotomaPostRequest : IPostRequest
 {
-    public FileData[] SetFiles { get; set; } = [];
+    public FileData[] Creates { get; set; } = [];
+    public Guid[] Deletes { get; set; } = [];
     public EventEntity[] Events { get; set; } = [];
 }
