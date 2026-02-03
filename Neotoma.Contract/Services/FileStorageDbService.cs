@@ -86,12 +86,24 @@ public sealed class FileStorageDbService
         await using var session = await Factory.CreateSessionAsync(ct);
         var options = _factoryOptions.Create();
         await CreateAsync(session, options, idempotentId, request.Creates, ct);
+        var deleteIds = new List<Guid>(request.Deletes);
+
+        foreach (var dir in request.DeleteDirs)
+        {
+            var query = new SqlQuery(
+                FileObjectsExt.SelectIdsQuery + " WHERE Path LIKE @Pattern",
+                new SqliteParameter("@Pattern", dir + "/%")
+            );
+
+            var ids = await session.GetGuidAsync(query, ct);
+            deleteIds.AddRange(ids);
+        }
 
         await session.DeleteEntitiesAsync(
             $"{_gaiaValues.UserId}",
             idempotentId,
             options.IsUseEvents,
-            request.Deletes,
+            deleteIds.ToArray(),
             ct
         );
 
