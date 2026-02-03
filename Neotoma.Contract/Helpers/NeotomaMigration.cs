@@ -12,7 +12,7 @@ public static class NeotomaMigration
         {
             {
                 19,
-                @"CREATE TABLE IF NOT EXISTS FileObjectEntities (
+                @"CREATE TABLE IF NOT EXISTS FileObjects (
     Id   TEXT PRIMARY KEY NOT NULL,
     Path TEXT NOT NULL CHECK(length(Path) <= 1000),
     Description TEXT NOT NULL CHECK(length(Description) <= 10000),
