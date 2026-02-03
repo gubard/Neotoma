@@ -95,6 +95,8 @@ public sealed class FileStorageDbService
             ct
         );
 
+        await session.CommitAsync(ct);
+
         return response;
     }
 
@@ -102,28 +104,32 @@ public sealed class FileStorageDbService
         DbSession session,
         DbServiceOptions options,
         Guid idempotentId,
-        FileData[] creates,
+        Dictionary<string, FileData[]> creates,
         CancellationToken ct
     )
     {
-        if (creates.Length == 0)
+        if (creates.Count == 0)
         {
             return TaskHelper.ConfiguredCompletedTask;
         }
 
-        var entities = new Span<FileObjectEntity>(new FileObjectEntity[creates.Length]);
+        var entities = new FileObjectEntity[creates.Values.Sum(x => x.Length)];
+        var index = 0;
 
-        for (var index = 0; index < creates.Length; index++)
+        foreach (var create in creates)
         {
-            var create = creates[index];
-            entities[index] = new() { Id = create.Id };
+            foreach (var file in create.Value)
+            {
+                entities[index] = file.ToFileObjectEntity(create.Key);
+                index++;
+            }
         }
 
         return session.AddEntitiesAsync(
             $"{_gaiaValues.UserId}",
             idempotentId,
             options.IsUseEvents,
-            entities.ToArray(),
+            entities,
             ct
         );
     }
@@ -138,14 +144,12 @@ public sealed class FileStorageDbService
 
         foreach (var dir in request.GetFiles)
         {
-            var files = await session.GetFileObjectsAsync(
-                new SqlQuery(
-                    FileObjectsExt.SelectQuery + " WHERE Path LIKE '@Dir%'",
-                    new SqliteParameter("@Dir", dir)
-                ),
-                ct
+            var query = new SqlQuery(
+                FileObjectsExt.SelectQuery + " WHERE Path LIKE @Pattern",
+                new SqliteParameter("@Pattern", dir + "/%")
             );
 
+            var files = await session.GetFileObjectsAsync(query, ct);
             response.GetFiles[dir] = files.Select(x => x.ToFileData()).ToArray();
         }
 
