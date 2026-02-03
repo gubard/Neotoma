@@ -11,7 +11,7 @@ public static class NeotomaMigration
         Migrations = new Dictionary<int, string>
         {
             {
-                18,
+                19,
                 @"CREATE TABLE IF NOT EXISTS FileObjectEntities (
     Id   TEXT PRIMARY KEY NOT NULL,
     Path TEXT NOT NULL CHECK(length(Path) <= 1000),
