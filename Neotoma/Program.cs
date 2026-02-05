@@ -22,6 +22,11 @@ foreach (var (key, value) in NeotomaMigration.Migrations)
     migration.Add(key, value);
 }
 
+foreach (var (key, value) in IdempotenceMigration.Migrations)
+{
+    migration.Add(key, value);
+}
+
 await WebApplication
     .CreateBuilder(args)
     .CreateAndRunZeusApp<
@@ -31,4 +36,4 @@ await WebApplication
         NeotomaPostRequest,
         NeotomaGetResponse,
         NeotomaPostResponse
-    >(migration.ToFrozenDictionary(), "Neotoma");
+    >(migration.ToFrozenDictionary(), NeotomaJsonContext.Default.Options, "Neotoma");
