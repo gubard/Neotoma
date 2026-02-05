@@ -92,7 +92,7 @@ public sealed class FileStorageDbService
         {
             var query = new SqlQuery(
                 FileObjectsExt.SelectIdsQuery + " WHERE Path LIKE @Pattern",
-                new SqliteParameter("@Pattern", dir + "/%")
+                session.CreateParameter("@Pattern", dir + "/%")
             );
 
             var ids = await session.GetGuidAsync(query, ct);
@@ -158,7 +158,7 @@ public sealed class FileStorageDbService
         {
             var query = new SqlQuery(
                 FileObjectsExt.SelectQuery + " WHERE Path LIKE @Pattern",
-                new SqliteParameter("@Pattern", dir + "/%")
+                session.CreateParameter("@Pattern", dir + "/%")
             );
 
             var files = await session.GetFileObjectsAsync(query, ct);
