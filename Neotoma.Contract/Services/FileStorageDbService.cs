@@ -2,7 +2,6 @@ using System.Runtime.CompilerServices;
 using Gaia.Helpers;
 using Gaia.Models;
 using Gaia.Services;
-using Microsoft.Data.Sqlite;
 using Neotoma.Contract.Helpers;
 using Neotoma.Contract.Models;
 using Nestor.Db.Helpers;
