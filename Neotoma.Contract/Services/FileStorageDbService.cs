@@ -33,17 +33,17 @@ public sealed class FileStorageDbService
         IFileStorageDbService,
         IFileStorageDbCache
 {
-    private readonly GaiaValues _gaiaValues;
+    private readonly DbValues _dbValues;
     private readonly IFactory<DbServiceOptions> _factoryOptions;
 
     public FileStorageDbService(
         IDbConnectionFactory factory,
-        GaiaValues gaiaValues,
+        DbValues dbValues,
         IFactory<DbServiceOptions> factoryOptions
     )
         : base(factory, nameof(FileObjectEntity))
     {
-        _gaiaValues = gaiaValues;
+        _dbValues = dbValues;
         _factoryOptions = factoryOptions;
     }
 
@@ -99,7 +99,7 @@ public sealed class FileStorageDbService
         }
 
         await session.DeleteEntitiesAsync(
-            $"{_gaiaValues.UserId}",
+            $"{_dbValues.UserId}",
             idempotentId,
             options.IsUseEvents,
             deleteIds.ToArray(),
@@ -137,7 +137,7 @@ public sealed class FileStorageDbService
         }
 
         return session.AddEntitiesAsync(
-            $"{_gaiaValues.UserId}",
+            $"{_dbValues.UserId}",
             idempotentId,
             options.IsUseEvents,
             entities,
