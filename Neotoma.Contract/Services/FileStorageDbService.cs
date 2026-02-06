@@ -33,17 +33,17 @@ public sealed class FileStorageDbService
         IFileStorageDbService,
         IFileStorageDbCache
 {
-    private readonly DbValues _dbValues;
+    private readonly IFactory<DbValues> _dbValuesFactory;
     private readonly IFactory<DbServiceOptions> _factoryOptions;
 
     public FileStorageDbService(
         IDbConnectionFactory factory,
-        DbValues dbValues,
+        IFactory<DbValues> dbValuesFactory,
         IFactory<DbServiceOptions> factoryOptions
     )
         : base(factory, nameof(FileObjectEntity))
     {
-        _dbValues = dbValues;
+        _dbValuesFactory = dbValuesFactory;
         _factoryOptions = factoryOptions;
     }
 
@@ -82,9 +82,10 @@ public sealed class FileStorageDbService
         CancellationToken ct
     )
     {
+        var dbValues = _dbValuesFactory.Create();
         await using var session = await Factory.CreateSessionAsync(ct);
         var options = _factoryOptions.Create();
-        await CreateAsync(session, options, idempotentId, request.Creates, ct);
+        await CreateAsync(session, options, idempotentId, request.Creates, dbValues, ct);
         var deleteIds = new List<Guid>(request.Deletes);
 
         foreach (var dir in request.DeleteDirs)
@@ -99,7 +100,7 @@ public sealed class FileStorageDbService
         }
 
         await session.DeleteEntitiesAsync(
-            $"{_dbValues.UserId}",
+            $"{dbValues.UserId}",
             idempotentId,
             options.IsUseEvents,
             deleteIds.ToArray(),
@@ -116,6 +117,7 @@ public sealed class FileStorageDbService
         DbServiceOptions options,
         Guid idempotentId,
         Dictionary<string, FileData[]> creates,
+        DbValues dbValues,
         CancellationToken ct
     )
     {
@@ -137,7 +139,7 @@ public sealed class FileStorageDbService
         }
 
         return session.AddEntitiesAsync(
-            $"{_dbValues.UserId}",
+            $"{dbValues.UserId}",
             idempotentId,
             options.IsUseEvents,
             entities,
