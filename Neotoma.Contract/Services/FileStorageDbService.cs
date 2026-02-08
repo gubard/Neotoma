@@ -62,7 +62,7 @@ public sealed class FileStorageDbService
         return UpdateCore(source, ct).ConfigureAwait(false);
     }
 
-    protected override ConfiguredValueTaskAwaitable<NeotomaPostResponse> ExecuteAsync(
+    protected override ConfiguredValueTaskAwaitable ExecuteAsync(
         Guid idempotentId,
         NeotomaPostResponse response,
         NeotomaPostRequest request,
@@ -142,7 +142,7 @@ public sealed class FileStorageDbService
         await session.CommitAsync(ct);
     }
 
-    private async ValueTask<NeotomaPostResponse> ExecuteCore(
+    private async ValueTask ExecuteCore(
         Guid idempotentId,
         NeotomaPostResponse response,
         NeotomaPostRequest request,
@@ -170,8 +170,6 @@ public sealed class FileStorageDbService
         );
 
         await session.CommitAsync(ct);
-
-        return response;
     }
 
     private async ValueTask<Guid[]> GetIdsByPatternAsync(
