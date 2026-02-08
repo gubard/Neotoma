@@ -33,9 +33,6 @@ public sealed class FileStorageDbService
         IFileStorageDbService,
         IFileStorageDbCache
 {
-    private readonly IFactory<DbValues> _dbValuesFactory;
-    private readonly IFactory<DbServiceOptions> _factoryOptions;
-
     public FileStorageDbService(
         IDbConnectionFactory factory,
         IFactory<DbValues> dbValuesFactory,
@@ -55,6 +52,16 @@ public sealed class FileStorageDbService
         return GetCore(request, ct).ConfigureAwait(false);
     }
 
+    public ConfiguredValueTaskAwaitable UpdateAsync(NeotomaPostRequest source, CancellationToken ct)
+    {
+        return UpdateCore(source, ct).ConfigureAwait(false);
+    }
+
+    public ConfiguredValueTaskAwaitable UpdateAsync(NeotomaGetResponse source, CancellationToken ct)
+    {
+        return UpdateCore(source, ct).ConfigureAwait(false);
+    }
+
     protected override ConfiguredValueTaskAwaitable<NeotomaPostResponse> ExecuteAsync(
         Guid idempotentId,
         NeotomaPostResponse response,
@@ -65,14 +72,74 @@ public sealed class FileStorageDbService
         return ExecuteCore(idempotentId, response, request, ct).ConfigureAwait(false);
     }
 
-    public ConfiguredValueTaskAwaitable UpdateAsync(NeotomaPostRequest source, CancellationToken ct)
+    private readonly IFactory<DbValues> _dbValuesFactory;
+    private readonly IFactory<DbServiceOptions> _factoryOptions;
+
+    private async ValueTask UpdateCore(NeotomaPostRequest source, CancellationToken ct)
     {
-        return TaskHelper.ConfiguredCompletedTask;
+        var dbValues = _dbValuesFactory.Create();
+        var userId = dbValues.UserId.ToString();
+        await using var session = await Factory.CreateSessionAsync(ct);
+
+        await session.AddEntitiesAsync(
+            userId,
+            Guid.NewGuid(),
+            false,
+            source
+                .Creates.SelectMany(x => x.Value.Select(y => y.ToFileObjectEntity(x.Key)))
+                .ToArray(),
+            ct
+        );
+
+        await session.DeleteEntitiesAsync(userId, Guid.NewGuid(), false, source.Deletes, ct);
+
+        foreach (var dir in source.DeleteDirs)
+        {
+            var ids = await GetIdsByPatternAsync(session, dir + "/%", ct);
+            await session.DeleteEntitiesAsync(userId, Guid.NewGuid(), false, ids, ct);
+        }
+
+        await session.CommitAsync(ct);
     }
 
-    public ConfiguredValueTaskAwaitable UpdateAsync(NeotomaGetResponse source, CancellationToken ct)
+    private async ValueTask UpdateCore(NeotomaGetResponse source, CancellationToken ct)
     {
-        return TaskHelper.ConfiguredCompletedTask;
+        await using var session = await Factory.CreateSessionAsync(ct);
+
+        foreach (var getFile in source.GetFiles)
+        {
+            var dbIds = await GetIdsByPatternAsync(session, getFile.Key + "/%", ct);
+            var entities = getFile.Value.Select(x => x.ToFileObjectEntity(getFile.Key)).ToArray();
+            var requestIds = entities.Select(x => x.Id).ToArray();
+            var deleteIds = dbIds.Except(requestIds).ToArray();
+            var exists = await session.IsExistsAsync(entities, ct);
+            var inserts = entities.Where(x => !exists.Contains(x.Id)).ToArray();
+
+            var updateQueries = entities
+                .Where(x => exists.Contains(x.Id))
+                .Select(x => x.CreateUpdateFileObjectsQuery(session))
+                .ToArray();
+
+            if (inserts.Length != 0)
+            {
+                await session.ExecuteNonQueryAsync(inserts.CreateInsertQuery(session), ct);
+            }
+
+            foreach (var query in updateQueries)
+            {
+                await session.ExecuteNonQueryAsync(query, ct);
+            }
+
+            if (deleteIds.Length != 0)
+            {
+                await session.ExecuteNonQueryAsync(
+                    deleteIds.CreateDeleteFileObjectsQuery(session),
+                    ct
+                );
+            }
+        }
+
+        await session.CommitAsync(ct);
     }
 
     private async ValueTask<NeotomaPostResponse> ExecuteCore(
@@ -90,12 +157,7 @@ public sealed class FileStorageDbService
 
         foreach (var dir in request.DeleteDirs)
         {
-            var query = new SqlQuery(
-                FileObjectsExt.SelectIdsQuery + " WHERE Path LIKE @Pattern",
-                session.CreateParameter("@Pattern", dir + "/%")
-            );
-
-            var ids = await session.GetGuidAsync(query, ct);
+            var ids = await GetIdsByPatternAsync(session, dir + "/%", ct);
             deleteIds.AddRange(ids);
         }
 
@@ -110,6 +172,22 @@ public sealed class FileStorageDbService
         await session.CommitAsync(ct);
 
         return response;
+    }
+
+    private async ValueTask<Guid[]> GetIdsByPatternAsync(
+        DbSession session,
+        string pattern,
+        CancellationToken ct
+    )
+    {
+        var query = new SqlQuery(
+            FileObjectsExt.SelectIdsQuery + " WHERE Path LIKE @Pattern",
+            session.CreateParameter("@Pattern", pattern)
+        );
+
+        var ids = await session.GetGuidAsync(query, ct);
+
+        return ids;
     }
 
     private ConfiguredValueTaskAwaitable CreateAsync(
