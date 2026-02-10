@@ -117,12 +117,12 @@ public sealed class FileStorageDbService
 
             var updateQueries = entities
                 .Where(x => exists.Contains(x.Id))
-                .Select(x => x.CreateUpdateFileObjectsQuery(session))
+                .Select(x => x.CreateUpdateFileObjectsQuery())
                 .ToArray();
 
             if (inserts.Length != 0)
             {
-                await session.ExecuteNonQueryAsync(inserts.CreateInsertQuery(session), ct);
+                await session.ExecuteNonQueryAsync(inserts.CreateInsertQuery(), ct);
             }
 
             foreach (var query in updateQueries)
@@ -132,10 +132,7 @@ public sealed class FileStorageDbService
 
             if (deleteIds.Length != 0)
             {
-                await session.ExecuteNonQueryAsync(
-                    deleteIds.CreateDeleteFileObjectsQuery(session),
-                    ct
-                );
+                await session.ExecuteNonQueryAsync(deleteIds.CreateDeleteFileObjectsQuery(), ct);
             }
         }
 
@@ -180,7 +177,7 @@ public sealed class FileStorageDbService
     {
         var query = new SqlQuery(
             FileObjectsExt.SelectIdsQuery + " WHERE Path LIKE @Pattern",
-            session.CreateParameter("@Pattern", pattern)
+            new QueryParameter("@Pattern", pattern)
         );
 
         var ids = await session.GetGuidAsync(query, ct);
@@ -235,7 +232,7 @@ public sealed class FileStorageDbService
         {
             var query = new SqlQuery(
                 FileObjectsExt.SelectQuery + " WHERE Path LIKE @Pattern",
-                session.CreateParameter("@Pattern", dir + "/%")
+                new QueryParameter("@Pattern", dir + "/%")
             );
 
             var files = await session.GetFileObjectsAsync(query, ct);
