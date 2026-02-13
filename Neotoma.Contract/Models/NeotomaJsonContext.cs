@@ -11,7 +11,7 @@ namespace Neotoma.Contract.Models;
 [JsonSerializable(typeof(FileData))]
 [JsonSerializable(typeof(AlreadyExistsValidationError))]
 [JsonSerializable(typeof(NotFoundValidationError))]
-public partial class NeotomaJsonContext : JsonSerializerContext
+public sealed partial class NeotomaJsonContext : JsonSerializerContext
 {
     public static readonly IJsonTypeInfoResolver Resolver;
 

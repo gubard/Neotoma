@@ -1,6 +1,6 @@
 namespace Neotoma.Contract.Models;
 
-public class FileData
+public sealed class FileData
 {
     public Guid Id { get; set; }
     public string Description { get; set; } = string.Empty;
