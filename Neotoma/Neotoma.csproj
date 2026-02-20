@@ -11,6 +11,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Zeus\Zeus\Zeus.csproj" />
-    <ProjectReference Include="..\Neotoma.Contract\Neotoma.Contract.csproj" />
+    <ProjectReference Include="..\Neotoma.Db\Neotoma.Db.csproj" />
   </ItemGroup>
 </Project>

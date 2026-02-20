@@ -4,29 +4,12 @@ using Gaia.Models;
 using Gaia.Services;
 using Neotoma.Contract.Helpers;
 using Neotoma.Contract.Models;
+using Neotoma.Contract.Services;
 using Nestor.Db.Helpers;
 using Nestor.Db.Models;
 using Nestor.Db.Services;
 
-namespace Neotoma.Contract.Services;
-
-public interface IFileStorageService
-    : IService<NeotomaGetRequest, NeotomaPostRequest, NeotomaGetResponse, NeotomaPostResponse>;
-
-public interface IFileStorageHttpService
-    : IFileStorageService,
-        IHttpService<
-            NeotomaGetRequest,
-            NeotomaPostRequest,
-            NeotomaGetResponse,
-            NeotomaPostResponse
-        >;
-
-public interface IFileStorageDbService
-    : IFileStorageService,
-        IDbService<NeotomaGetRequest, NeotomaPostRequest, NeotomaGetResponse, NeotomaPostResponse>;
-
-public interface IFileStorageDbCache : IDbCache<NeotomaPostRequest, NeotomaGetResponse>;
+namespace Neotoma.Db.Services;
 
 public sealed class FileStorageDbService
     : DbService<NeotomaGetRequest, NeotomaPostRequest, NeotomaGetResponse, NeotomaPostResponse>,

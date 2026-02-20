@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="Neotoma.Contract/Neotoma.Contract.csproj" />
+  <Project Path="Neotoma.Db/Neotoma.Db.csproj" />
   <Project Path="Neotoma/Neotoma.csproj" />
 </Solution>
