@@ -1,5 +1,4 @@
 ﻿using Neotoma.Contract.Models;
 using Nestor.Db.Models;
 
-[assembly: Ado(typeof(FileObjectEntity), nameof(FileObjectEntity.Id), false)]
-[assembly: SourceEntity(typeof(FileObjectEntity), nameof(FileObjectEntity.Id))]
+[assembly: EditModel(typeof(FileObjectEntity), nameof(FileObjectEntity.Id))]

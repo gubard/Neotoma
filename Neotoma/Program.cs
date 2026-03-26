@@ -32,7 +32,7 @@ await WebApplication
     .CreateBuilder(args)
     .CreateAndRunZeusApp<
         IFileStorageService,
-        FileStorageDbService,
+        FileStorageAdoDbService,
         NeotomaGetRequest,
         NeotomaPostRequest,
         NeotomaGetResponse,

@@ -11,12 +11,12 @@ using Nestor.Db.Services;
 
 namespace Neotoma.Db.Services;
 
-public sealed class FileStorageDbService
-    : DbService<NeotomaGetRequest, NeotomaPostRequest, NeotomaGetResponse, NeotomaPostResponse>,
+public sealed class FileStorageAdoDbService
+    : AdoDbService<NeotomaGetRequest, NeotomaPostRequest, NeotomaGetResponse, NeotomaPostResponse>,
         IFileStorageDbService,
         IFileStorageDbCache
 {
-    public FileStorageDbService(
+    public FileStorageAdoDbService(
         IDbConnectionFactory factory,
         IFactory<DbValues> dbValuesFactory,
         IFactory<DbServiceOptions> factoryOptions
