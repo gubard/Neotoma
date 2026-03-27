@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using Gaia.Helpers;
 using Gaia.Models;
 using Gaia.Services;
 using Neotoma.Contract.Helpers;
@@ -32,20 +31,7 @@ public sealed class FileStorageLiteDbService
         CancellationToken ct
     )
     {
-        using var database = Factory.Create();
-        var collection = database.GetFileObjectEntityCollection();
-        var response = new NeotomaGetResponse();
-
-        foreach (var dir in request.GetFiles)
-        {
-            var files = collection
-                .Find(Query.StartsWith(nameof(FileObjectEntity.Path), dir + "/"))
-                .Select(x => x.ToFileObjectEntity());
-
-            response.GetFiles[dir] = files.Select(x => x.ToFileData()).ToArray();
-        }
-
-        return TaskHelper.FromResult(response);
+        return GetCore(request, ct).ConfigureAwait(false);
     }
 
     public ConfiguredValueTaskAwaitable UpdateAsync(NeotomaPostRequest source, CancellationToken ct)
@@ -55,7 +41,55 @@ public sealed class FileStorageLiteDbService
 
     public ConfiguredValueTaskAwaitable UpdateAsync(NeotomaGetResponse source, CancellationToken ct)
     {
-        using var database = Factory.Create();
+        return UpdateCore(source, ct).ConfigureAwait(false);
+    }
+
+    protected override ConfiguredValueTaskAwaitable ExecuteAsync(
+        Guid idempotentId,
+        NeotomaPostResponse response,
+        NeotomaPostRequest request,
+        CancellationToken ct
+    )
+    {
+        return ExecuteCore(idempotentId, response, request, ct).ConfigureAwait(false);
+    }
+
+    private readonly IFactory<DbValues> _dbValuesFactory;
+    private readonly IFactory<DbServiceOptions> _factoryOptions;
+
+    private async ValueTask ExecuteCore(
+        Guid idempotentId,
+        NeotomaPostResponse response,
+        NeotomaPostRequest request,
+        CancellationToken ct
+    )
+    {
+        var dbValues = _dbValuesFactory.Create();
+        using var database = await Factory.CreateAsync(ct);
+        var collection = database.GetFileObjectEntityCollection();
+        var options = _factoryOptions.Create();
+        Create(database, options, idempotentId, request.Creates, dbValues);
+        var deleteIds = new List<Guid>(request.Deletes);
+
+        foreach (var dir in request.DeleteDirs)
+        {
+            var ids = GetIdsByPattern(collection, dir + "/");
+            deleteIds.AddRange(ids);
+        }
+
+        database.DeleteEntities(
+            $"{dbValues.UserId}",
+            idempotentId,
+            options.IsUseEvents,
+            deleteIds.ToArray()
+        );
+
+        await database.SaveChangesAsync(ct);
+    }
+
+    private async ValueTask UpdateCore(NeotomaGetResponse source, CancellationToken ct)
+    {
+        using var database = await Factory.CreateAsync(ct);
         var collection = database.GetFileObjectEntityCollection();
 
         foreach (var getFile in source.GetFiles)
@@ -96,45 +130,29 @@ public sealed class FileStorageLiteDbService
             }
         }
 
-        database.SaveChanges();
-
-        return TaskHelper.ConfiguredCompletedTask;
+        await database.SaveChangesAsync(ct);
     }
 
-    protected override ConfiguredValueTaskAwaitable ExecuteAsync(
-        Guid idempotentId,
-        NeotomaPostResponse response,
-        NeotomaPostRequest request,
+    private async ValueTask<NeotomaGetResponse> GetCore(
+        NeotomaGetRequest request,
         CancellationToken ct
     )
     {
-        var dbValues = _dbValuesFactory.Create();
-        using var database = Factory.Create();
+        using var database = await Factory.CreateAsync(ct);
         var collection = database.GetFileObjectEntityCollection();
-        var options = _factoryOptions.Create();
-        Create(database, options, idempotentId, request.Creates, dbValues);
-        var deleteIds = new List<Guid>(request.Deletes);
+        var response = new NeotomaGetResponse();
 
-        foreach (var dir in request.DeleteDirs)
+        foreach (var dir in request.GetFiles)
         {
-            var ids = GetIdsByPattern(collection, dir + "/");
-            deleteIds.AddRange(ids);
+            var files = collection
+                .Find(Query.StartsWith(nameof(FileObjectEntity.Path), dir + "/"))
+                .Select(x => x.ToFileObjectEntity());
+
+            response.GetFiles[dir] = files.Select(x => x.ToFileData()).ToArray();
         }
 
-        database.DeleteEntities(
-            $"{dbValues.UserId}",
-            idempotentId,
-            options.IsUseEvents,
-            deleteIds.ToArray()
-        );
-
-        database.SaveChanges();
-
-        return TaskHelper.ConfiguredCompletedTask;
+        return response;
     }
-
-    private readonly IFactory<DbValues> _dbValuesFactory;
-    private readonly IFactory<DbServiceOptions> _factoryOptions;
 
     private async ValueTask UpdateCore(NeotomaPostRequest source, CancellationToken ct)
     {
