@@ -65,72 +65,87 @@ public sealed class FileStorageLiteDbService
     )
     {
         var dbValues = _dbValuesFactory.Create();
-        using var database = await Factory.CreateAsync(ct);
-        var collection = database.GetFileObjectEntityCollection();
-        var options = _factoryOptions.Create();
-        Create(database, options, idempotentId, request.Creates, dbValues);
-        var deleteIds = new List<Guid>(request.Deletes);
+        var database = await Factory.CreateAsync(ct);
 
-        foreach (var dir in request.DeleteDirs)
-        {
-            var ids = GetIdsByPattern(collection, dir + "/");
-            deleteIds.AddRange(ids);
-        }
+        await database.ExecuteAsync(
+            db =>
+            {
+                var collection = db.GetFileObjectEntityCollection();
+                var options = _factoryOptions.Create();
+                Create(db, options, idempotentId, request.Creates, dbValues);
+                var deleteIds = new List<Guid>(request.Deletes);
 
-        database.DeleteEntities(
-            $"{dbValues.UserId}",
-            idempotentId,
-            options.IsUseEvents,
-            deleteIds.ToArray()
+                foreach (var dir in request.DeleteDirs)
+                {
+                    var ids = GetIdsByPattern(collection, dir + "/");
+                    deleteIds.AddRange(ids);
+                }
+
+                db.DeleteEntities(
+                    $"{dbValues.UserId}",
+                    idempotentId,
+                    options.IsUseEvents,
+                    deleteIds.ToArray()
+                );
+            },
+            ct
         );
-
-        await database.SaveChangesAsync(ct);
     }
 
     private async ValueTask UpdateCore(NeotomaGetResponse source, CancellationToken ct)
     {
-        using var database = await Factory.CreateAsync(ct);
-        var collection = database.GetFileObjectEntityCollection();
+        var database = await Factory.CreateAsync(ct);
 
-        foreach (var getFile in source.GetFiles)
-        {
-            var dbIds = GetIdsByPattern(collection, getFile.Key + "/");
-            var entities = getFile.Value.Select(x => x.ToFileObjectEntity(getFile.Key)).ToArray();
-            var requestIds = entities.Select(x => x.Id).ToArray();
-            var deleteIds = dbIds.Except(requestIds).Select(x => new BsonValue(x)).ToArray();
-
-            var exists = entities
-                .Where(x => collection.Exists(Query.EQ("_id", x.Id)))
-                .Select(x => x.Id)
-                .ToArray();
-
-            var inserts = entities
-                .Where(x => !exists.Contains(x.Id))
-                .Select(x => x.ToBsonDocument())
-                .ToArray();
-
-            var updates = entities
-                .Where(x => exists.Contains(x.Id))
-                .Select(x => x.ToBsonDocument())
-                .ToArray();
-
-            if (inserts.Length != 0)
+        await database.ExecuteAsync(
+            db =>
             {
-                collection.Insert(inserts);
-            }
+                var collection = db.GetFileObjectEntityCollection();
 
-            if (updates.Length != 0)
-            {
-                collection.Update(updates);
-            }
+                foreach (var getFile in source.GetFiles)
+                {
+                    var dbIds = GetIdsByPattern(collection, getFile.Key + "/");
+                    var entities = getFile
+                        .Value.Select(x => x.ToFileObjectEntity(getFile.Key))
+                        .ToArray();
+                    var requestIds = entities.Select(x => x.Id).ToArray();
+                    var deleteIds = dbIds
+                        .Except(requestIds)
+                        .Select(x => new BsonValue(x))
+                        .ToArray();
 
-            if (deleteIds.Length != 0)
-            {
-                collection.Delete(Query.In("_id", deleteIds));
-            }
-        }
+                    var exists = entities
+                        .Where(x => collection.Exists(Query.EQ("_id", x.Id)))
+                        .Select(x => x.Id)
+                        .ToArray();
 
-        await database.SaveChangesAsync(ct);
+                    var inserts = entities
+                        .Where(x => !exists.Contains(x.Id))
+                        .Select(x => x.ToBsonDocument())
+                        .ToArray();
+
+                    var updates = entities
+                        .Where(x => exists.Contains(x.Id))
+                        .Select(x => x.ToBsonDocument())
+                        .ToArray();
+
+                    if (inserts.Length != 0)
+                    {
+                        collection.Insert(inserts);
+                    }
+
+                    if (updates.Length != 0)
+                    {
+                        collection.Update(updates);
+                    }
+
+                    if (deleteIds.Length != 0)
+                    {
+                        collection.Delete(Query.In("_id", deleteIds));
+                    }
+                }
+            },
+            ct
+        );
     }
 
     private async ValueTask<NeotomaGetResponse> GetCore(
@@ -138,20 +153,27 @@ public sealed class FileStorageLiteDbService
         CancellationToken ct
     )
     {
-        using var database = await Factory.CreateAsync(ct);
-        var collection = database.GetFileObjectEntityCollection();
-        var response = new NeotomaGetResponse();
+        var database = await Factory.CreateAsync(ct);
 
-        foreach (var dir in request.GetFiles)
-        {
-            var files = collection
-                .Find(Query.StartsWith(nameof(FileObjectEntity.Path), dir + "/"))
-                .Select(x => x.ToFileObjectEntity());
+        return await database.ExecuteAsync(
+            db =>
+            {
+                var collection = db.GetFileObjectEntityCollection();
+                var response = new NeotomaGetResponse();
 
-            response.GetFiles[dir] = files.Select(x => x.ToFileData()).ToArray();
-        }
+                foreach (var dir in request.GetFiles)
+                {
+                    var files = collection
+                        .Find(Query.StartsWith(nameof(FileObjectEntity.Path), dir + "/"))
+                        .Select(x => x.ToFileObjectEntity());
 
-        return response;
+                    response.GetFiles[dir] = files.Select(x => x.ToFileData()).ToArray();
+                }
+
+                return response;
+            },
+            ct
+        );
     }
 
     private async ValueTask UpdateCore(NeotomaPostRequest source, CancellationToken ct)
@@ -170,7 +192,7 @@ public sealed class FileStorageLiteDbService
     }
 
     private void Create(
-        IDatabase database,
+        UltraLiteDatabase database,
         DbServiceOptions options,
         Guid idempotentId,
         Dictionary<string, FileData[]> creates,
