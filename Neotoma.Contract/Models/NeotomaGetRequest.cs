@@ -2,5 +2,6 @@ namespace Neotoma.Contract.Models;
 
 public sealed class NeotomaGetRequest
 {
-    public string[] GetFiles { get; set; } = [];
+    public string[] GetInfo { get; set; } = [];
+    public Guid[] GetData { get; set; } = [];
 }

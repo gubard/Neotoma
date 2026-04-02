@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Gaia.Helpers;
 using Gaia.Models;
 using Gaia.Services;
 using Neotoma.Contract.Helpers;
@@ -99,53 +100,82 @@ public sealed class FileStorageLiteDbService
         await database.ExecuteAsync(
             db =>
             {
+                var edits = new AutoDictionary<Guid, EditFileObjectEntity>();
                 var collection = db.GetFileObjectEntityCollection();
+                var deleteIds = new List<BsonValue>();
+                var insertDocuments = new List<BsonDocument>();
 
-                foreach (var getFile in source.GetFiles)
+                foreach (var info in source.Info)
                 {
-                    var dbIds = GetIdsByPattern(collection, getFile.Key + "/");
-                    var entities = getFile
-                        .Value.Select(x => x.ToFileObjectEntity(getFile.Key))
-                        .ToArray();
-                    var requestIds = entities.Select(x => x.Id).ToArray();
-                    var deleteIds = dbIds
-                        .Except(requestIds)
-                        .Select(x => new BsonValue(x))
+                    var requestIds = info.Value.Select(x => x.Id).ToArray();
+
+                    var existIds = collection
+                        .Find(Query.In("_id", requestIds.Select(x => new BsonValue(x))))
+                        .Select(x => x["_id"].AsGuid);
+
+                    var dbIds = GetIdsByPattern(collection, info.Key + "/")
+                        .Concat(existIds)
                         .ToArray();
 
-                    var exists = entities
-                        .Where(x => collection.Exists(Query.EQ("_id", x.Id)))
-                        .Select(x => x.Id)
-                        .ToArray();
+                    var di = dbIds
+                        .Where(x => !requestIds.Contains(x))
+                        .Select(x => new BsonValue(x));
 
-                    var inserts = entities
-                        .Where(x => !exists.Contains(x.Id))
-                        .Select(x => x.ToBsonDocument())
-                        .ToArray();
+                    deleteIds.AddRange(di);
 
-                    var updates = entities
-                        .Where(x => exists.Contains(x.Id))
-                        .Select(x => x.ToBsonDocument())
-                        .ToArray();
+                    var documents = requestIds
+                        .Where(x => !dbIds.Contains(x))
+                        .Select(x => new FileObjectEntity { Id = x }.ToBsonDocument());
 
-                    if (inserts.Length != 0)
+                    insertDocuments.AddRange(documents);
+
+                    foreach (var value in info.Value)
                     {
-                        collection.Insert(inserts);
+                        SetEdit(edits, info.Key, value);
                     }
+                }
 
-                    if (updates.Length != 0)
-                    {
-                        collection.Update(updates);
-                    }
+                foreach (var data in source.Data)
+                {
+                    var item = edits.GetItem(data.Id);
+                    item.IsEditData = true;
+                    item.Data = data.Data;
+                    item.IsEditHash = true;
+                    item.Hash = data.Hash;
+                }
 
-                    if (deleteIds.Length != 0)
-                    {
-                        collection.Delete(Query.In("_id", deleteIds));
-                    }
+                if (insertDocuments.Count != 0)
+                {
+                    collection.Insert(insertDocuments);
+                }
+
+                if (edits.Count != 0)
+                {
+                    collection.Edit(edits.ToItemsArray());
+                }
+
+                if (deleteIds.Count != 0)
+                {
+                    collection.Delete(Query.In("_id", deleteIds));
                 }
             },
             ct
         );
+    }
+
+    private void SetEdit(
+        AutoDictionary<Guid, EditFileObjectEntity> dictionary,
+        string dir,
+        FileObjectInfo info
+    )
+    {
+        var item = dictionary.GetItem(info.Id);
+
+        item.IsEditDescription = true;
+        item.Description = info.Description;
+
+        item.IsEditPath = true;
+        item.Path = $"{dir}/{info.Name}";
     }
 
     private async ValueTask<NeotomaGetResponse> GetCore(
@@ -161,14 +191,34 @@ public sealed class FileStorageLiteDbService
                 var collection = db.GetFileObjectEntityCollection();
                 var response = new NeotomaGetResponse();
 
-                foreach (var dir in request.GetFiles)
+                foreach (var dir in request.GetInfo)
                 {
                     var files = collection
                         .Find(Query.StartsWith(nameof(FileObjectEntity.Path), dir + "/"))
                         .Select(x => x.ToFileObjectEntity());
 
-                    response.GetFiles[dir] = files.Select(x => x.ToFileData()).ToArray();
+                    response.Info[dir] = files.Select(x => x.ToFileObjectInfo()).ToArray();
                 }
+
+                var dataDocuments = new List<BsonDocument>();
+
+                foreach (var id in request.GetData)
+                {
+                    var document = collection.FindById(new(id));
+
+                    if (document is null)
+                    {
+                        response.ValidationErrors.Add(new NotFoundValidationError(id.ToString()));
+
+                        continue;
+                    }
+
+                    dataDocuments.Add(document);
+                }
+
+                response.Data = dataDocuments
+                    .Select(x => x.ToFileObjectEntity().ToFileObjectData())
+                    .ToArray();
 
                 return response;
             },
@@ -181,12 +231,29 @@ public sealed class FileStorageLiteDbService
         await ExecuteAsync(Guid.NewGuid(), new(), source, ct);
     }
 
-    private Guid[] GetIdsByPattern(UltraLiteCollection<BsonDocument> collection, string pattern)
+    private Guid[] GetIdsByPattern(
+        UltraLiteCollection<BsonDocument> collection,
+        params string[] patterns
+    )
     {
-        var ids = collection
-            .Find(Query.StartsWith(nameof(FileObjectEntity.Path), pattern))
-            .Select(x => x["_id"].AsGuid)
+        if (patterns.Length == 0)
+        {
+            return [];
+        }
+
+        if (patterns.Length == 1)
+        {
+            return collection
+                .Find(Query.StartsWith(nameof(FileObjectEntity.Path), patterns[0]))
+                .Select(x => x["_id"].AsGuid)
+                .ToArray();
+        }
+
+        var queries = patterns
+            .Select(x => Query.StartsWith(nameof(FileObjectEntity.Path), x))
             .ToArray();
+
+        var ids = collection.Find(Query.Or(queries)).Select(x => x["_id"].AsGuid).ToArray();
 
         return ids;
     }
@@ -195,7 +262,7 @@ public sealed class FileStorageLiteDbService
         UltraLiteDatabase database,
         DbServiceOptions options,
         Guid idempotentId,
-        Dictionary<string, FileData[]> creates,
+        Dictionary<string, FileObject[]> creates,
         DbValues dbValues
     )
     {

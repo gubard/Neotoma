@@ -4,25 +4,36 @@ namespace Neotoma.Contract.Helpers;
 
 public static class Mapper
 {
-    public static FileData ToFileData(this FileObjectEntity entity)
+    public static FileObjectEntity ToFileObjectEntity(this FileObject value, string dir)
     {
         return new()
         {
-            Data = entity.Data,
-            Description = entity.Description,
-            Id = entity.Id,
-            Name = Path.GetFileName(entity.Path),
+            Data = value.Data,
+            Description = value.Description,
+            Id = value.Id,
+            Path = $"{dir}/{value.Name}",
+            Hash = value.Hash,
         };
     }
 
-    public static FileObjectEntity ToFileObjectEntity(this FileData data, string dir)
+    public static FileObjectInfo ToFileObjectInfo(this FileObjectEntity value)
     {
         return new()
         {
-            Data = data.Data,
-            Description = data.Description,
-            Id = data.Id,
-            Path = Path.Combine(dir, data.Name),
+            Description = value.Description,
+            Id = value.Id,
+            Name = Path.GetFileName(value.Path),
+            Hash = value.Hash,
+        };
+    }
+
+    public static FileObjectData ToFileObjectData(this FileObjectEntity value)
+    {
+        return new()
+        {
+            Id = value.Id,
+            Hash = value.Hash,
+            Data = value.Data,
         };
     }
 }

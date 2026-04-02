@@ -5,6 +5,7 @@ namespace Neotoma.Contract.Models;
 
 public sealed class NeotomaGetResponse : IResponse
 {
-    public Dictionary<string, FileData[]> GetFiles { get; set; } = [];
+    public Dictionary<string, FileObjectInfo[]> Info { get; set; } = [];
+    public FileObjectData[] Data { get; set; } = [];
     public List<ValidationError> ValidationErrors { get; set; } = [];
 }

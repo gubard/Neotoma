@@ -1,10 +1,10 @@
-namespace Neotoma.Contract.Models;
+﻿namespace Neotoma.Contract.Models;
 
-public sealed class FileObjectEntity
+public sealed class FileObject
 {
     public Guid Id { get; set; }
     public string Description { get; set; } = string.Empty;
-    public string Path { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
     public string Hash { get; set; } = string.Empty;
     public byte[] Data { get; set; } = [];
 }

@@ -8,7 +8,7 @@ namespace Neotoma.Contract.Models;
 [JsonSerializable(typeof(NeotomaPostRequest))]
 [JsonSerializable(typeof(NeotomaGetResponse))]
 [JsonSerializable(typeof(NeotomaPostResponse))]
-[JsonSerializable(typeof(FileData))]
+[JsonSerializable(typeof(FileObjectInfo))]
 [JsonSerializable(typeof(AlreadyExistsValidationError))]
 [JsonSerializable(typeof(NotFoundValidationError))]
 public sealed partial class NeotomaJsonContext : JsonSerializerContext
