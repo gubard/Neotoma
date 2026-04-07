@@ -4,6 +4,18 @@ namespace Neotoma.Contract.Helpers;
 
 public static class Mapper
 {
+    public static FileObject ToFileObject(this FileObjectEntity value)
+    {
+        return new()
+        {
+            Data = value.Data,
+            Description = value.Description,
+            Id = value.Id,
+            Hash = value.Hash,
+            Name = Path.GetFileName(value.Path),
+        };
+    }
+
     public static FileObjectEntity ToFileObjectEntity(this FileObject value, string dir)
     {
         return new()

@@ -191,6 +191,15 @@ public sealed class FileStorageLiteDbService
                 var collection = db.GetFileObjectEntityCollection();
                 var response = new NeotomaGetResponse();
 
+                if (request.IsGetAll)
+                {
+                    response.All = collection
+                        .FindAll()
+                        .Select(x => x.ToFileObjectEntity())
+                        .GroupBy(x => Path.GetDirectoryName(x.Path).ThrowIfNull())
+                        .ToDictionary(x => x.Key, x => x.Select(y => y.ToFileObject()).ToArray());
+                }
+
                 foreach (var dir in request.GetInfo)
                 {
                     var files = collection
