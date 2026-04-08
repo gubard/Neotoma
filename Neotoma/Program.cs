@@ -8,12 +8,13 @@ using Neotoma.Contract.Services;
 using Neotoma.Db.Services;
 using Neotoma.Services;
 using Nestor.Db.Helpers;
+using Nestor.Db.LiteDb.Helpers;
 using Zeus.Helpers;
 using Zeus.Services;
 
-InsertHelper.AddDefaultInsert(
+DefaultBsonDocument.AddDefaultBsonDocument(
     nameof(FileObjectEntity),
-    i => new FileObjectEntity[] { new() { Id = i } }.CreateInsertQuery()
+    i => new FileObjectEntity { Id = i }.ToBsonDocument()
 );
 
 var migration = new Dictionary<int, string>();
