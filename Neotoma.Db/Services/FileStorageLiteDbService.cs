@@ -17,7 +17,7 @@ public sealed class FileStorageLiteDbService
         IFileStorageDbCache
 {
     public FileStorageLiteDbService(
-        IDatabaseFactory factory,
+        IUltraLiteDatabaseFactory factory,
         IFactory<DbValues> dbValuesFactory,
         IFactory<DbServiceOptions> factoryOptions
     )
@@ -88,6 +88,8 @@ public sealed class FileStorageLiteDbService
                     options.IsUseEvents,
                     deleteIds.ToArray()
                 );
+
+                return TaskHelper.ConfiguredCompletedTask;
             },
             ct
         );
@@ -107,7 +109,7 @@ public sealed class FileStorageLiteDbService
 
                 foreach (var info in source.Info)
                 {
-                    var requestIds = info.Value.Select(x => x.Id).ToArray();
+                    var requestIds = info.Value.SelectAsSpan(x => x.Id).ToArray();
 
                     var existIds = collection
                         .Find(Query.In("_id", requestIds.Select(x => new BsonValue(x))))
@@ -158,6 +160,8 @@ public sealed class FileStorageLiteDbService
                 {
                     collection.Delete(Query.In("_id", deleteIds));
                 }
+
+                return TaskHelper.ConfiguredCompletedTask;
             },
             ct
         );
@@ -229,7 +233,7 @@ public sealed class FileStorageLiteDbService
                     .Select(x => x.ToFileObjectEntity().ToFileObjectData())
                     .ToArray();
 
-                return response;
+                return TaskHelper.FromResult(response);
             },
             ct
         );
@@ -259,7 +263,7 @@ public sealed class FileStorageLiteDbService
         }
 
         var queries = patterns
-            .Select(x => Query.StartsWith(nameof(FileObjectEntity.Path), x))
+            .SelectAsSpan(x => Query.StartsWith(nameof(FileObjectEntity.Path), x))
             .ToArray();
 
         var ids = collection.Find(Query.Or(queries)).Select(x => x["_id"].AsGuid).ToArray();
