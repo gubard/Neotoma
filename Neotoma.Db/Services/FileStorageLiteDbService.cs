@@ -7,6 +7,7 @@ using Neotoma.Contract.Models;
 using Neotoma.Contract.Services;
 using Nestor.Db.LiteDb.Services;
 using Nestor.Db.Models;
+using Nestor.Db.Services;
 using UltraLiteDB;
 
 namespace Neotoma.Db.Services;
